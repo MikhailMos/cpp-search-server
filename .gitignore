@@ -30,3 +30,10 @@
 *.exe
 *.out
 *.app
+
+# Main
+.vs/
+.vscode/
+CppProperties.json
+*.ilk
+*.pdb
