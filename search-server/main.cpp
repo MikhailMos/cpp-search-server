@@ -380,23 +380,32 @@ void TestExcludeStopWordsFromAddedDocumentContent() {
 
 // Тест проверяет, что поисковая система исключает минус-слова из поискового запроса
 void TestExcludeMinusWordsFromQuery() {
-    const int doc_id = 42;
-    const string content = "cat in the city"s;
-    const vector<int> ratings = { 1, 2, 3 };
+    
+    const int doc_id1 = 42;
+    const int doc_id2 = 24;    
+    const string content_1 = "cat in the city"s;
+    const vector<int> ratings_1 = { -1, 2, 2 };
+    const string content_2 = "dog of a hidden village"s;
+    const vector<int> ratings_2 = { 1, 2, 3 };
     // сначала убедимся, что слова не являющиеся минус-словами, находят нужный документ
     {
         SearchServer server;
-        server.AddDocument(doc_id, content, DocumentStatus::ACTUAL, ratings);
+        server.AddDocument(doc_id1, content_1, DocumentStatus::ACTUAL, ratings_1);
+        server.AddDocument(doc_id2, content_2, DocumentStatus::ACTUAL, ratings_2);
         const auto found_docs = server.FindTopDocuments("in"s);
         ASSERT_EQUAL(found_docs.size(), 1);
         const Document& doc0 = found_docs[0];
-        ASSERT_EQUAL(doc0.id, doc_id);
+        ASSERT_EQUAL(doc0.id, doc_id1);
     }
-    // затем убедимся, что поиск по минус-слову возвращает пустоту 
-    {
+    // затем убедимся, что поиск по минус-слову возвращает второй документ (id = 24) 
+    {        
         SearchServer server;
-        server.AddDocument(doc_id, content, DocumentStatus::ACTUAL, ratings);
-        ASSERT(server.FindTopDocuments("-in the"s).empty());
+        server.AddDocument(doc_id1, content_1, DocumentStatus::ACTUAL, ratings_1);
+        server.AddDocument(doc_id2, content_2, DocumentStatus::ACTUAL, ratings_2);
+        const auto found_docs = server.FindTopDocuments("-in the dog"s);
+        ASSERT(found_docs.size(), 1);
+        const Document& doc0 = found_docs[0];
+        ASSERT_EQUAL(doc0.id, doc_id2);
     }
 }
 
@@ -412,22 +421,23 @@ void TestMatchDocument() {
 
     // убедимся,что слова из поискового запроса вернулись
     {
-        const auto found_tup = server.MatchDocument("in the cat"s, doc_id);
-        const vector<string> words = get<0>(found_tup);
+        const auto found_tup = server.MatchDocument("in the cat"s, doc_id);        
+        const auto& [words, status_doc] = found_tup;
         ASSERT_EQUAL(words.size(), 3);
     }
 
     // убедимся, что присутствие минус-слова возвращает пустой вектор
     {
         const auto found_tup = server.MatchDocument("in -the cat"s, doc_id);
-        const vector<string> words = get<0>(found_tup);
+        const auto& [words, status_doc] = found_tup;
         ASSERT_EQUAL(words.empty(), true);
     }
 
 }
 
 // Тест на сортировку по релевантности найденых документов
-void TestByRelevanceAndRating() {
+void TestByRelevance() {
+    
     const double epx = 1e-6; //+-0.000001
     const int doc_id1 = 1;
     const int doc_id2 = 2;
@@ -453,14 +463,69 @@ void TestByRelevanceAndRating() {
     const Document& doc3 = found_docs[2];
 
     // проверим сортировку по релевантности
-    ASSERT(abs(doc1.relevance - 0.304098831081123) < epx);
-    ASSERT(abs(doc2.relevance - 0.202732554054082) < epx);
-    ASSERT(abs(doc3.relevance - 0.0810930216216328) < epx);
+    ASSERT(doc1.relevance > doc2.relevance > doc3.relevance);
+    
+    // значение релевантности вычисляется по формуле
+    // idf = log(server.GetDocumentCount() * 1.0 / 1), где числитель - это кол-во документов, знаменатель это кол-во документов, где встречается слово запроса. 
+    // PS: НЕ встречающиеся ни где слова в расчет не берутся!
+    // tf = (а / b), где а - сколько раз встречается слово в документе, b - кол-во слов в документе.    
+    // затем произведения tf и idf в документе суммируются
+    
+    double relev1 = log(server.GetDocumentCount() * 1.0 / 2) * (1.0 / 4) 
+                    + log(server.GetDocumentCount() * 1.0 / 2) * (1.0 / 4) 
+                    + log(server.GetDocumentCount() * 1.0 / 2) * (1.0 / 4) 
+                    + 0 
+                    + log(server.GetDocumentCount() * 1.0 / 2) * (0.0 / 4);
+
+    double relev2 = log(server.GetDocumentCount() * 1.0 / 2) * (0.0 / 5) 
+                    + log(server.GetDocumentCount() * 1.0 / 2) * (0.0 / 5) 
+                    + log(server.GetDocumentCount() * 1.0 / 2) * (0.0 / 5) 
+                    + 0 
+                    + log(server.GetDocumentCount() * 1.0 / 2) * (1.0 / 5);
+
+    double relev3 = log(server.GetDocumentCount() * 1.0 / 2) * (1.0 / 4) 
+                    + log(server.GetDocumentCount() * 1.0 / 2) * (1.0 / 4) 
+                    + log(server.GetDocumentCount() * 1.0 / 2) * (1.0 / 4) 
+                    + 0 
+                    + log(server.GetDocumentCount() * 1.0 / 2) * (0.0 / 4);
+            
+    // проверим на точность вычисления значений в рамках погрешности    
+    ASSERT(abs(doc1.relevance - relev1) < epx);
+    ASSERT(abs(doc2.relevance - relev3) < epx);
+    ASSERT(abs(doc3.relevance - relev2) < epx);
+
+}
+
+// Тест по рейтингу
+void TestByRating() {
+    
+    const int doc_id1 = 1;
+    const int doc_id2 = 2;
+    const int doc_id3 = 3;
+    const string content_1 = "cat in the city"s;
+    const vector<int> ratings_1 = { -1, 2, 2 }; // rating 1 relev = 0.304098831081123
+    const string content_2 = "dog of a hidden village"s;
+    const vector<int> ratings_2 = { 1, 2, 3 }; // rating 2 relev = 0.0810930216216328
+    const string content_3 = "silent assasin village cat in the village of darkest realms"s;
+    const vector<int> ratings_3 = { 2, 3, 4 }; // rating 3 relev = 0.202732554054082
+
+    SearchServer server;
+    server.AddDocument(doc_id1, content_1, DocumentStatus::ACTUAL, ratings_1);
+    server.AddDocument(doc_id2, content_2, DocumentStatus::ACTUAL, ratings_2);
+    server.AddDocument(doc_id3, content_3, DocumentStatus::ACTUAL, ratings_3);
+
+    // убедимся,что документы найдены
+    const auto found_docs = server.FindTopDocuments("cat in the loan village"s);
+    ASSERT_EQUAL(found_docs.size(), 3);
+
+    const Document& doc1 = found_docs[0];
+    const Document& doc2 = found_docs[1];
+    const Document& doc3 = found_docs[2];
 
     // проверим рейтинг
-    ASSERT_EQUAL(doc1.rating, 1);
-    ASSERT_EQUAL(doc2.rating, 3);
-    ASSERT_EQUAL(doc3.rating, 2);
+    ASSERT_EQUAL(doc1.rating, (-1 + 2 + 2) / 3);
+    ASSERT_EQUAL(doc2.rating, (2 + 3 + 4) / 3);
+    ASSERT_EQUAL(doc3.rating, (1 + 2 + 3) / 3);
 
 }
 
@@ -559,7 +624,8 @@ void TestSearchServer() {
     RUN_TEST(TestExcludeStopWordsFromAddedDocumentContent);
     RUN_TEST(TestExcludeMinusWordsFromQuery);
     RUN_TEST(TestMatchDocument);
-    RUN_TEST(TestByRelevanceAndRating);
+    RUN_TEST(TestByRelevance);
+    RUN_TEST(TestByRating);
     RUN_TEST(TestFilterByPredicate);
     RUN_TEST(TestSearchByStatusDocuments);
 }
