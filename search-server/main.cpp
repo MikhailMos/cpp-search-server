@@ -129,6 +129,7 @@ public:
             word_to_document_freqs_[word][document_id] += inv_word_count;
         }
         documents_.emplace(document_id, DocumentData{ ComputeAverageRating(ratings), status });
+        ids_of_documents_.push_back(document_id);
     }
 
     template <typename DocumentPredicate>
@@ -140,7 +141,7 @@ public:
 
         sort(result.begin(), result.end(),
             [](const Document& lhs, const Document& rhs) {
-                if (abs(lhs.relevance - rhs.relevance) < 1e-6) {
+                if (abs(lhs.relevance - rhs.relevance) < EPSILON) {
                     return lhs.rating > rhs.rating;
                 }
                 else {
@@ -192,22 +193,13 @@ public:
     }
 
     int GetDocumentId(int index) const {
-
+        
         if (index < 0 || index > static_cast<int>(documents_.size())) {
             throw out_of_range("Index out of range"s);
         }
-
-        int result = 0;
-        int i = 0;
-        for (const auto& [id, status] : documents_) {
-            if (i == index) {
-                result = id;
-                break;
-            }
-            ++i;
-        }
-
-        return result;
+        
+        return ids_of_documents_.at(index);
+        
     }
 
 private:
@@ -218,6 +210,7 @@ private:
     const set<string> stop_words_ = {};
     map<string, map<int, double>> word_to_document_freqs_;
     map<int, DocumentData> documents_;
+    vector<int> ids_of_documents_;
 
     bool IsStopWord(const string& word) const {
         return stop_words_.count(word) > 0;
@@ -244,10 +237,8 @@ private:
         if (ratings.empty()) {
             return 0;
         }
-        int rating_sum = 0;
-        for (const int rating : ratings) {
-            rating_sum += rating;
-        }
+        int rating_sum = accumulate(ratings.begin(), ratings.end(), 0);
+        
         return rating_sum / static_cast<int>(ratings.size());
     }
 
@@ -722,15 +713,15 @@ int main()
     try {
         // проверка на попытку добавить документ с уже имеющимя ид в системе
         search_server.AddDocument(1, "пушистый пёс и модный ошейник"s, DocumentStatus::ACTUAL, { 1, 2 });
-        // проверка на добавление документа с отрицательным ид
-        search_server.AddDocument(-1, "пушистый пёс и модный ошейник"s, DocumentStatus::ACTUAL, { 1, 2 });
-        // попытка добавить документ с текстом содержащим недопустимые символы
-        search_server.AddDocument(4, "большой пёс скво\x12рец"s, DocumentStatus::ACTUAL, { 1, 3, 2 });
-        // проверка на содержание нескольких минусов
-        const auto documents = search_server.FindTopDocuments("--пушистый"s);
-        for (const Document& document : documents) {
-            PrintDocument(document);
-        }
+        //// проверка на добавление документа с отрицательным ид
+        //search_server.AddDocument(-1, "пушистый пёс и модный ошейник"s, DocumentStatus::ACTUAL, { 1, 2 });
+        //// попытка добавить документ с текстом содержащим недопустимые символы
+        //search_server.AddDocument(4, "большой пёс скво\x12рец"s, DocumentStatus::ACTUAL, { 1, 3, 2 });
+        //// проверка на содержание нескольких минусов
+        //const auto documents = search_server.FindTopDocuments("--пушистый"s);
+        //for (const Document& document : documents) {
+        //    PrintDocument(document);
+        //}
     }
     catch (const invalid_argument& e) {
         cout << "Error: "s << e.what() << endl;
