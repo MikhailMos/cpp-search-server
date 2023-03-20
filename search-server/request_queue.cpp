@@ -7,16 +7,6 @@ RequestQueue::RequestQueue(const SearchServer& search_server)
     , curr_time_(0) {
 }
 
-// сделаем "обёртки" для всех методов поиска, чтобы сохранять результаты для нашей статистики
-template <typename DocumentPredicate>
-std::vector<Document> RequestQueue::AddFindRequest(const std::string& raw_query, DocumentPredicate document_predicate) {
-
-    const std::vector<Document> result_docs = search_server_.FindTopDocuments(raw_query, document_predicate);
-    RequestQueue::AddRequest(raw_query, static_cast<int>(result_docs.size()));
-
-    return result_docs;
-}
-
 std::vector<Document> RequestQueue::AddFindRequest(const std::string& raw_query, DocumentStatus status) {
     return AddFindRequest(raw_query, [status](int document_id, DocumentStatus document_status, int rating) {
         return document_status == status;

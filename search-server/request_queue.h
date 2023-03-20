@@ -30,3 +30,12 @@ private:
     void AddRequest(const std::string& raw_query, int count_of_docs);
 
 };
+
+template <typename DocumentPredicate>
+std::vector<Document> RequestQueue::AddFindRequest(const std::string& raw_query, DocumentPredicate document_predicate) {
+
+    const std::vector<Document> result_docs = search_server_.FindTopDocuments(raw_query, document_predicate);
+    RequestQueue::AddRequest(raw_query, static_cast<int>(result_docs.size()));
+
+    return result_docs;
+}
