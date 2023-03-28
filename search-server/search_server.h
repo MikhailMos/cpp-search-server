@@ -32,17 +32,25 @@ public:
 
     std::tuple<std::vector<std::string>, DocumentStatus> MatchDocument(const std::string& raw_query, int document_id) const;
 
-    int GetDocumentId(int index) const;
+    std::vector<int>::const_iterator begin() const;
+
+    std::vector<int>::const_iterator end() const;
+
+    const std::map<std::string, double>& GetWordFrequencies(int document_id) const;
+
+    void RemoveDocument(int document_id);
 
 private:
     struct DocumentData {
         int rating;
-        DocumentStatus status;
+        DocumentStatus status;        
     };
-    const std::set<std::string> stop_words_ = {};
-    std::map<std::string, std::map<int, double>> word_to_document_freqs_;
-    std::map<int, DocumentData> documents_;
-    std::vector<int> ids_of_documents_;
+    const std::set<std::string> stop_words_ = {}; // стоп-слова
+    std::map<std::string, std::map<int, double>> word_to_document_freqs_; // слова содержащиеяся в документах и их частота в этом документе {<слово> {{<ид_документа>, <частота>},...}} 
+    std::map<int, DocumentData> documents_; // {<ид_док>, {<рейтинг>, <статус>}}
+    std::vector<int> ids_of_documents_; // все ИД добавленых документов
+    std::map<int, std::map<std::string, double>> words_with_frequency_by_doc_id_; // {doc_id {word, freq}}
+    const std::map<std::string, double> EMPTY_MAP_WORDS_FREQS_;
 
     bool IsStopWord(const std::string& word) const;
 
@@ -73,6 +81,7 @@ private:
     template <typename DocumentPredicate>
     std::vector<Document> FindAllDocuments(const Query& query,
         DocumentPredicate document_predicate) const;
+
 };
 
 template <typename StringContainer>
