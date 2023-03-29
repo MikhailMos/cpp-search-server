@@ -16,23 +16,20 @@ std::set<std::string> ConvertMapToSet(const std::map<std::string, double>& map_w
 
 void RemoveDuplicates(SearchServer& search_server) {
     std::set<int> id_for_remove;
+    std::set<std::set<std::string>> unique_words;
 
-    for (auto it1 = search_server.begin(); it1 != search_server.end(); ++it1) {
-        const std::map<std::string, double>& map_words = search_server.GetWordFrequencies(*it1);
-        const std::set<std::string> set_words1 = ConvertMapToSet(map_words);
+    for (const int document_id : search_server) {
+        const std::map<std::string, double>& map_words = search_server.GetWordFrequencies(document_id);
+        const std::set<std::string> set_words = ConvertMapToSet(map_words);
 
-        for (auto it2 = (it1 + 1); it2 != search_server.end(); ++it2) {
-            const std::map<std::string, double>& map_words_next = search_server.GetWordFrequencies(*it2);
-            const std::set<std::string> set_words2 = ConvertMapToSet(map_words_next);
-            // найден дубль
-            if (set_words1 == set_words2) {
-                id_for_remove.insert(*it2);
-            }
-            
+        if (unique_words.count(set_words) != 0) {
+            id_for_remove.insert(document_id);
         }
-
+        else {
+            unique_words.insert(set_words);
+        }
     }
-
+    
     for (const int id : id_for_remove) {
         search_server.RemoveDocument(id);
         std::cout << "Found duplicate document id " << id << std::endl;
