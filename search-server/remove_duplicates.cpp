@@ -3,9 +3,10 @@
 #include <iostream>
 #include <set>
 #include <string>
+#include <string_view>
 
-std::set<std::string> ConvertMapToSet(const std::map<std::string, double>& map_words) {
-    std::set<std::string> result;
+std::set<std::string_view> ConvertMapToSet(const std::map<std::string_view, double>& map_words) {
+    std::set<std::string_view> result;
 
     for (auto it = map_words.begin(); it != map_words.end(); ++it) {
         result.insert(it->first);
@@ -16,11 +17,11 @@ std::set<std::string> ConvertMapToSet(const std::map<std::string, double>& map_w
 
 void RemoveDuplicates(SearchServer& search_server) {
     std::set<int> id_for_remove;
-    std::set<std::set<std::string>> unique_words;
+    std::set<std::set<std::string_view>> unique_words;
 
     for (const int document_id : search_server) {
-        const std::map<std::string, double>& map_words = search_server.GetWordFrequencies(document_id);
-        const std::set<std::string> set_words = ConvertMapToSet(map_words);
+        const std::map<std::string_view, double>& map_words = search_server.GetWordFrequencies(document_id);
+        const std::set<std::string_view> set_words = ConvertMapToSet(map_words);
 
         if (unique_words.count(set_words) != 0) {
             id_for_remove.insert(document_id);
