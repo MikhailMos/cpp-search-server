@@ -4,6 +4,7 @@
 
 #include <string>
 #include <vector>
+#include <string_view>
 
 void MatchDocuments(const SearchServer& search_server, const std::string& query);
 

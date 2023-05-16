@@ -2,6 +2,7 @@
 
 #include <ostream>
 #include <vector>
+#include <string_view>
 
 struct Document {
     Document() = default;
@@ -22,4 +23,4 @@ enum class DocumentStatus
 };
 
 std::ostream& operator<<(std::ostream& os, const Document& doc);
-std::ostream& operator<<(std::ostream& os, const std::vector<std::string>& words);
+std::ostream& operator<<(std::ostream& os, const std::vector<std::string_view>& words);
